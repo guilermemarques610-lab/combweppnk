@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Wepink</title>
+    <meta name="description" content="Wepink - Kit Vanilla Body Splash com até 80% OFF">
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;700;800;900&display=swap" rel="stylesheet" />
+
+    
+    
+    <meta property="og:type" content="website" />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    
+    
+    
+  
+  
+  
+
+  <!-- TikTok Pixel Code Start -->
+  <script>
+  !function (w, d, t) {
+    w.TiktokAnalyticsObject=t;var ttq=w[t]=w[t]||[];ttq.methods=["page","track","identify","instances","debug","on","off","once","ready","alias","group","enableCookie","disableCookie","holdConsent","revokeConsent","grantConsent"],ttq.setAndDefer=function(t,e){t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}};for(var i=0;i<ttq.methods.length;i++)ttq.setAndDefer(ttq,ttq.methods[i]);ttq.instance=function(t){for(
+    var e=ttq._i[t]||[],n=0;n<ttq.methods.length;n++)ttq.setAndDefer(e,ttq.methods[n]);return e},ttq.load=function(e,n){var r="https://analytics.tiktok.com/i18n/pixel/events.js",o=n&&n.partner;ttq._i=ttq._i||{},ttq._i[e]=[],ttq._i[e]._u=r,ttq._t=ttq._t||{},ttq._t[e]=+new Date,ttq._o=ttq._o||{},ttq._o[e]=n||{};n=document.createElement("script")
+    ;n.type="text/javascript",n.async=!0,n.src=r+"?sdkid="+e+"&lib="+t;e=document.getElementsByTagName("script")[0];e.parentNode.insertBefore(n,e)};
+
+    ttq.load('D79GBHRC77U5V754BN40');
+    ttq.page();
+  }(window, document, 'ttq');
+  </script>
+  <!-- TikTok Pixel Code End -->
+
+  <!-- Utmify -->
+  <script
+    src="https://cdn.utmify.com.br/scripts/utms/latest.js"
+    data-utmify-prevent-xcod-sck
+    data-utmify-prevent-subids
+    async
+    defer
+  ></script>
+
+  <!-- Repasse ttclid (TikTok Click ID) -->
+  <script>
+  (function () {
+    try {
+      var urlParams = new URLSearchParams(window.location.search);
+      var ttclid = urlParams.get('ttclid');
+      if (ttclid) {
+        sessionStorage.setItem('ttclid', ttclid);
+      } else {
+        ttclid = sessionStorage.getItem('ttclid');
+      }
+      if (!ttclid) return;
+
+      // Injeta ttclid em todos os <a href> ao carregar e em mutações futuras
+      function patchLinks() {
+        document.querySelectorAll('a[href]').forEach(function (link) {
+          try {
+            var url = new URL(link.href, window.location.origin);
+            if (['http:', 'https:'].includes(url.protocol) && !url.searchParams.get('ttclid')) {
+              url.searchParams.set('ttclid', ttclid);
+              link.href = url.toString();
+            }
+          } catch (e) {}
+        });
+      }
+
+      // Intercepta window.location.href / .assign / .replace para preservar ttclid em redirects programáticos
+      var origAssign = window.location.assign.bind(window.location);
+      var origReplace = window.location.replace.bind(window.location);
+      function withTtclid(href) {
+        try {
+          var url = new URL(href, window.location.origin);
+          if (['http:', 'https:'].includes(url.protocol) && !url.searchParams.get('ttclid')) {
+            url.searchParams.set('ttclid', ttclid);
+            return url.toString();
+          }
+        } catch (e) {}
+        return href;
+      }
+      window.location.assign = function (h) { return origAssign(withTtclid(h)); };
+      window.location.replace = function (h) { return origReplace(withTtclid(h)); };
+
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', patchLinks);
+      } else {
+        patchLinks();
+      }
+      new MutationObserver(patchLinks).observe(document.documentElement, { childList: true, subtree: true });
+    } catch (e) {}
+  })();
+  </script>
+  
+  
+  
+  
+  <meta property="og:image" content="https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/71b98b7d-07c1-4064-bba7-eee0863ed166/id-preview-5b37aedb--da0be810-3d37-47a0-86e2-41e4662699ad.lovable.app-1779113407536.png">
+  <meta name="twitter:image" content="https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/71b98b7d-07c1-4064-bba7-eee0863ed166/id-preview-5b37aedb--da0be810-3d37-47a0-86e2-41e4662699ad.lovable.app-1779113407536.png">
+  <meta property="og:title" content="Wepink">
+  <meta name="twitter:title" content="Wepink">
+  <meta property="og:description" content="Wepink - Kit Vanilla Body Splash com até 80% OFF">
+  <meta name="twitter:description" content="Wepink - Kit Vanilla Body Splash com até 80% OFF">
+</head>
+
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
