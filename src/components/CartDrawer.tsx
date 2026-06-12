@@ -123,6 +123,7 @@ const CartDrawer = ({ open, onClose, onCheckout }: CartDrawerProps) => {
     "kit+liberte+newKit": "https://pay.pagmentosseguro.shop/6a2b02d0c34af41e52fa2521",
     "kit+golden+newKit": "https://pay.pagmentosseguro.shop/6a2b041acbd053c9936e15a2",
     "kit+vf27+newKit": "https://pay.pagmentosseguro.shop/6a2b0557c34af41e52fa278b",
+    "kit+liberte+newKit+vf27": "https://pay.pagmentosseguro.shop/6a2b17145c5da1b0ef340059",
     "kit+golden+liberte+vf27+newKit": "https://pay.pagmentosseguro.shop/6a2afde7cbd053c9936e119e",
   };
 
