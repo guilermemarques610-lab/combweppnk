@@ -113,7 +113,7 @@ const ProductPage = ({ onCheckout }: { onCheckout?: (items: CartItem[]) => void 
                 <span>Promoção</span>
                 <span className="mx-2 text-muted-foreground">&gt;</span>
               </div>
-              <div className="font-normal text-foreground">Kit de 5 Body Splash</div>
+              <div className="font-semibold text-foreground">Kit de 5 Body Splash</div>
             </nav>
           </div>
         </div>
