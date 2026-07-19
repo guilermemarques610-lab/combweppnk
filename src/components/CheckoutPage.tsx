@@ -182,7 +182,17 @@ const CheckoutPage = ({ items }: CheckoutPageProps) => {
     if (!transactionId || checkingManual) return;
     setCheckingManual(true);
     try {
-      const { data, error } = await supabase.functions.invoke("check-pix", { body: { transactionId } });
+      const orderPayload = {
+        customer: { name: form.nome, email: form.email, document: form.cpf, phone: form.telefone },
+        address: {
+          zipCode: form.cep, street: form.rua, number: noNumber ? "S/N" : form.numero,
+          complement: form.complemento, neighborhood: form.bairro, city: form.cidade, state: form.estado,
+        },
+        items: items.map((it) => ({ title: it.name, unitPrice: it.price, quantity: 1 })),
+        amount: total,
+        shipping: selectedShipping,
+      };
+      const { data, error } = await supabase.functions.invoke("check-pix", { body: { transactionId, order: orderPayload } });
       if (error) throw error;
       if (data?.paid) {
         setPayStatus("approved");
