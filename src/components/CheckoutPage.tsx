@@ -524,11 +524,5 @@ const Field = ({
   </div>
 );
 
-const PixDiamond = () => (
-  <svg viewBox="0 0 24 24" className="h-5 w-5 text-foreground" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M12 2 L22 12 L12 22 L2 12 Z" />
-    <path d="M7 12 L12 7 L17 12 L12 17 Z" />
-  </svg>
-);
 
 export default CheckoutPage;
