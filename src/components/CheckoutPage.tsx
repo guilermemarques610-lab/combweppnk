@@ -6,6 +6,7 @@ import correiosLogo from "@/assets/correios-logo.png";
 import fullLogo from "@/assets/full-logo.png";
 import jadlogLogo from "@/assets/jadlog-logo.png";
 import { QRCodeSVG } from "qrcode.react";
+import { supabase } from "@/integrations/supabase/client";
 
 interface CheckoutPageProps {
   items: CartItem[];
@@ -46,15 +47,15 @@ const CheckoutPage = ({ items }: CheckoutPageProps) => {
   const [payStatus, setPayStatus] = useState<PayStatus>("idle");
   const [pixTimer, setPixTimer] = useState(900);
   const [copied, setCopied] = useState(false);
+  const [pixCode, setPixCode] = useState("");
+  const [transactionId, setTransactionId] = useState("");
+  const [checkingManual, setCheckingManual] = useState(false);
   const shippingRef = useRef<HTMLDivElement | null>(null);
 
   const shippingPrices: Record<Shipping, number> = { full: 18.92, correios: 0, jadlog: 9.98 };
   const shippingCost = shippingPrices[selectedShipping];
   const showShipping = step >= 1;
   const total = subtotal + (showShipping ? shippingCost : 0);
-
-  // simulated pix payload — will be replaced by API response
-  const pixKey = `00020126870014br.gov.bcb.pix2565qrcode.fy.wepink.com.br/v2/${Math.random().toString(36).slice(2)}5204000053039865802BR5913WEPINK PAGTO6009SAO PAULO62070503***6304ABCD${total.toFixed(2)}`;
 
   // save state for upsell continuity
   useEffect(() => {
@@ -68,16 +69,22 @@ const CheckoutPage = ({ items }: CheckoutPageProps) => {
     return () => clearInterval(i);
   }, [payStatus, pixTimer]);
 
-  // simulated approval (replace with API polling)
+  // Poll Zuckpay for payment confirmation every 5s
   useEffect(() => {
-    if (payStatus !== "pending") return;
-    const t = setTimeout(() => {
-      setPayStatus("approved");
-      toast.success("Pagamento aprovado!");
-      setTimeout(() => { window.location.href = "/upsell"; }, 2200);
-    }, 60000);
-    return () => clearTimeout(t);
-  }, [payStatus]);
+    if (payStatus !== "pending" || !transactionId) return;
+    const interval = setInterval(async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke("check-pix", { body: { transactionId } });
+        if (error) { console.error("check-pix error", error); return; }
+        if (data?.paid) {
+          setPayStatus("approved");
+          toast.success("Pagamento aprovado!");
+          setTimeout(() => { window.location.href = "/upsell"; }, 2200);
+        }
+      } catch (e) { console.error("poll error", e); }
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [payStatus, transactionId]);
 
   const handleChange = (field: keyof typeof form, value: string) => {
     if (field === "cpf") value = formatCPF(value);
@@ -117,9 +124,63 @@ const CheckoutPage = ({ items }: CheckoutPageProps) => {
     (noNumber || form.numero.trim()) &&
     form.rua.trim() && form.bairro.trim() && form.cidade.trim() && form.estado.trim();
 
-  const handlePay = () => {
+  const handlePay = async () => {
     setPayStatus("loading");
-    setTimeout(() => { setPayStatus("pending"); setPixTimer(900); }, 1600);
+    try {
+      const { data, error } = await supabase.functions.invoke("create-pix", {
+        body: {
+          amount: total,
+          customer: {
+            name: form.nome,
+            email: form.email,
+            document: form.cpf,
+            phone: form.telefone,
+          },
+          address: {
+            zipCode: form.cep,
+            street: form.rua,
+            number: noNumber ? "S/N" : form.numero,
+            complement: form.complemento,
+            neighborhood: form.bairro,
+            city: form.cidade,
+            state: form.estado,
+          },
+          items: items.map((it) => ({ title: it.name, unitPrice: it.price, quantity: 1 })),
+        },
+      });
+      if (error) throw error;
+      if (!data?.pixCode) throw new Error("PIX não gerado");
+      setPixCode(data.pixCode);
+      setTransactionId(data.transactionId || "");
+      setPayStatus("pending");
+      setPixTimer(900);
+    } catch (err) {
+      console.error("create-pix failed", err);
+      const msg = err instanceof Error ? err.message : "Erro ao gerar PIX";
+      toast.error(`Falha ao gerar PIX: ${msg}`);
+      setPayStatus("idle");
+    }
+  };
+
+  const handleCheckManual = async () => {
+    if (!transactionId || checkingManual) return;
+    setCheckingManual(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("check-pix", { body: { transactionId } });
+      if (error) throw error;
+      if (data?.paid) {
+        setPayStatus("approved");
+        toast.success("Pagamento aprovado!");
+        setTimeout(() => { window.location.href = "/upsell"; }, 2200);
+      } else {
+        toast.info("Ainda não identificamos seu pagamento. Aguarde alguns instantes.");
+      }
+    } catch (e) {
+      console.error(e);
+      toast.error("Erro ao verificar pagamento.");
+    } finally {
+      setCheckingManual(false);
+    }
   };
 
   const goBack = () => {
@@ -333,7 +394,7 @@ const CheckoutPage = ({ items }: CheckoutPageProps) => {
 
               <div className="flex justify-center">
                 <div className="rounded-xl border border-border bg-white p-3">
-                  <QRCodeSVG value={pixKey} size={180} />
+                  <QRCodeSVG value={pixCode} size={180} />
                 </div>
               </div>
 
@@ -347,20 +408,22 @@ const CheckoutPage = ({ items }: CheckoutPageProps) => {
                 <span className="text-base font-bold text-foreground">{brl(total)}</span>
               </div>
 
-              <p className="truncate text-xs text-muted-foreground">{pixKey}</p>
+              <p className="truncate text-xs text-muted-foreground">{pixCode}</p>
 
               <button
-                onClick={() => { navigator.clipboard?.writeText(pixKey); setCopied(true); toast.success("Código PIX copiado!"); setTimeout(() => setCopied(false), 2500); }}
+                onClick={() => { navigator.clipboard?.writeText(pixCode); setCopied(true); toast.success("Código PIX copiado!"); setTimeout(() => setCopied(false), 2500); }}
                 className="flex w-full items-center justify-center gap-2 rounded-full bg-primary py-3.5 text-sm font-semibold text-primary-foreground"
               >
                 {copied ? <><CheckCircle2 className="h-4 w-4" /> Copiado!</> : <><Copy className="h-4 w-4" /> Copiar PIX</>}
               </button>
 
               <button
-                onClick={() => toast.info("Aguardando confirmação do pagamento...")}
-                className="flex w-full items-center justify-center gap-2 rounded-full border border-border bg-white py-3.5 text-sm font-semibold text-foreground"
+                onClick={handleCheckManual}
+                disabled={checkingManual}
+                className="flex w-full items-center justify-center gap-2 rounded-full border border-border bg-white py-3.5 text-sm font-semibold text-foreground disabled:opacity-60"
               >
-                <CheckCircle2 className="h-4 w-4" /> Já efetuei o pagamento!
+                {checkingManual ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                Já efetuei o pagamento!
               </button>
 
               <p className="text-xs text-muted-foreground">
