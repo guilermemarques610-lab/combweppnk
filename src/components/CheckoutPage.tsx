@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { toast } from "sonner";
-import { User, Mail, ChevronRight, Package, Truck, CheckCircle2, Loader2, QrCode, Copy, Smartphone, Clock, AlertTriangle, Lock, CreditCard, Shield, Zap } from "lucide-react";
+import { User, Truck, CreditCard, ArrowLeft, Loader2, Copy, CheckCircle2, ShieldCheck, AlertTriangle } from "lucide-react";
 import type { CartItem } from "./OrderBump";
 import correiosLogo from "@/assets/correios-logo.png";
 import fullLogo from "@/assets/full-logo.png";
@@ -11,10 +11,11 @@ interface CheckoutPageProps {
   items: CartItem[];
 }
 
-const formatCPF = (v: string) => {
-  const d = v.replace(/\D/g, "").slice(0, 11);
-  return d.replace(/(\d{3})(\d)/, "$1.$2").replace(/(\d{3})(\d)/, "$1.$2").replace(/(\d{3})(\d{1,2})$/, "$1-$2");
-};
+const formatCPF = (v: string) =>
+  v.replace(/\D/g, "").slice(0, 11)
+    .replace(/(\d{3})(\d)/, "$1.$2")
+    .replace(/(\d{3})(\d)/, "$1.$2")
+    .replace(/(\d{3})(\d{1,2})$/, "$1-$2");
 const formatCEP = (v: string) => v.replace(/\D/g, "").slice(0, 8).replace(/(\d{5})(\d)/, "$1-$2");
 const formatPhone = (v: string) => {
   const d = v.replace(/\D/g, "").slice(0, 11);
@@ -22,55 +23,66 @@ const formatPhone = (v: string) => {
   return d.replace(/(\d{2})(\d)/, "($1) $2").replace(/(\d{5})(\d)/, "$1-$2");
 };
 
-const CheckoutPage = ({ items }: CheckoutPageProps) => {
-  const subtotal = items.reduce((sum, item) => sum + item.price, 0);
-  const subtotalLabel = `R$ ${subtotal.toFixed(2).replace(".", ",")}`;
+const brl = (n: number) => `R$ ${n.toFixed(2).replace(".", ",")}`;
 
-  const [step, setStep] = useState(0);
+const ESTADOS = ["AC","AL","AM","AP","BA","CE","DF","ES","GO","MA","MG","MS","MT","PA","PB","PE","PI","PR","RJ","RN","RO","RR","RS","SC","SE","SP","TO"];
+
+type Shipping = "full" | "correios" | "jadlog";
+type Step = 0 | 1 | 2;
+type PayStatus = "idle" | "loading" | "pending" | "approved";
+
+const CheckoutPage = ({ items }: CheckoutPageProps) => {
+  const subtotal = items.reduce((s, it) => s + it.price, 0);
+
+  const [step, setStep] = useState<Step>(0);
   const [loadingCep, setLoadingCep] = useState(false);
-  const [showShipping, setShowShipping] = useState(false);
-  const [selectedShipping, setSelectedShipping] = useState("correios");
-  const shippingRef = useRef<HTMLDivElement | null>(null);
-  const [form, setForm] = useState({ nome: "", telefone: "", email: "", cpf: "", cep: "", endereco: "", numero: "", complemento: "", bairro: "", cidade: "", estado: "" });
-  const [paymentStatus, setPaymentStatus] = useState<"idle" | "loading" | "pending" | "approved">("idle");
+  const [noNumber, setNoNumber] = useState(false);
+  const [selectedShipping, setSelectedShipping] = useState<Shipping>("correios");
+  const [form, setForm] = useState({
+    email: "", nome: "", telefone: "", cpf: "",
+    cep: "", numero: "", rua: "", bairro: "", cidade: "", estado: "", complemento: "",
+  });
+
+  const [payStatus, setPayStatus] = useState<PayStatus>("idle");
   const [pixTimer, setPixTimer] = useState(900);
   const [copied, setCopied] = useState(false);
+  const shippingRef = useRef<HTMLDivElement | null>(null);
 
-  // Save state for upsell
+  const shippingPrices: Record<Shipping, number> = { full: 18.92, correios: 0, jadlog: 9.98 };
+  const shippingCost = shippingPrices[selectedShipping];
+  const showShipping = step >= 1;
+  const total = subtotal + (showShipping ? shippingCost : 0);
+
+  // simulated pix payload — will be replaced by API response
+  const pixKey = `00020126870014br.gov.bcb.pix2565qrcode.fy.wepink.com.br/v2/${Math.random().toString(36).slice(2)}5204000053039865802BR5913WEPINK PAGTO6009SAO PAULO62070503***6304ABCD${total.toFixed(2)}`;
+
+  // save state for upsell continuity
   useEffect(() => {
-    try { sessionStorage.setItem("checkout_state", JSON.stringify({ form, selectedShipping })); } catch {/* */}
+    try { sessionStorage.setItem("checkout_state", JSON.stringify({ form, selectedShipping })); } catch { /* */ }
   }, [form, selectedShipping]);
 
-  const shippingPrices: Record<string, number> = { correios: 0, full: 19.90, jadlog: 9.98 };
-  const shippingCost = shippingPrices[selectedShipping] ?? 0;
-  const total = subtotal + (showShipping ? shippingCost : 0);
-  const totalLabel = `R$ ${total.toFixed(2).replace(".", ",")}`;
-  const parcela = `R$ ${(total / 3).toFixed(2).replace(".", ",")}`;
-  const shippingLabel = shippingCost === 0 ? "Grátis" : `R$ ${shippingCost.toFixed(2).replace(".", ",")}`;
-
-  const pixKey = `00020126360014BR.GOV.BCB.PIX0114+5511999999999520400005303986540${total.toFixed(2)}5802BR5913WEPINK PAGAMENTO6009SAO PAULO62070503***6304ABCD`;
-
+  // countdown when waiting for pix
   useEffect(() => {
-    if (paymentStatus !== "pending" || pixTimer <= 0) return;
-    const interval = setInterval(() => setPixTimer((t) => t - 1), 1000);
-    return () => clearInterval(interval);
-  }, [paymentStatus, pixTimer]);
+    if (payStatus !== "pending" || pixTimer <= 0) return;
+    const i = setInterval(() => setPixTimer((t) => t - 1), 1000);
+    return () => clearInterval(i);
+  }, [payStatus, pixTimer]);
 
-  // Simulated payment approval after some seconds
+  // simulated approval (replace with API polling)
   useEffect(() => {
-    if (paymentStatus !== "pending") return;
+    if (payStatus !== "pending") return;
     const t = setTimeout(() => {
-      setPaymentStatus("approved");
-      toast.success("Pagamento aprovado! ✅");
-      setTimeout(() => { window.location.href = "/upsell"; }, 2500);
-    }, 60000); // 60s simulated
+      setPayStatus("approved");
+      toast.success("Pagamento aprovado!");
+      setTimeout(() => { window.location.href = "/upsell"; }, 2200);
+    }, 60000);
     return () => clearTimeout(t);
-  }, [paymentStatus]);
+  }, [payStatus]);
 
-  const handleChange = (field: string, value: string) => {
+  const handleChange = (field: keyof typeof form, value: string) => {
     if (field === "cpf") value = formatCPF(value);
-    if (field === "cep") value = formatCEP(value);
-    if (field === "telefone") value = formatPhone(value);
+    else if (field === "cep") value = formatCEP(value);
+    else if (field === "telefone") value = formatPhone(value);
     setForm((prev) => ({ ...prev, [field]: value }));
   };
 
@@ -84,323 +96,371 @@ const CheckoutPage = ({ items }: CheckoutPageProps) => {
       if (!data.erro) {
         setForm((prev) => ({
           ...prev,
-          endereco: data.logradouro || prev.endereco,
+          rua: data.logradouro || prev.rua,
           bairro: data.bairro || prev.bairro,
           cidade: data.localidade || prev.cidade,
           estado: data.uf || prev.estado,
         }));
-        setShowShipping(true);
-        setTimeout(() => shippingRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }), 100);
+        setTimeout(() => shippingRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }), 120);
       }
-    } catch {/* */} finally { setLoadingCep(false); }
+    } catch { /* */ } finally { setLoadingCep(false); }
   }, []);
 
-  const handleCreatePix = () => {
-    if (!form.nome.trim()) { toast.error("Preencha o nome completo."); return; }
-    if (!form.email.includes("@")) { toast.error("E-mail inválido."); return; }
-    if (form.cpf.replace(/\D/g, "").length !== 11) { toast.error("CPF inválido."); return; }
-    setPaymentStatus("loading");
-    setStep(3);
-    setTimeout(() => { setPaymentStatus("pending"); setPixTimer(900); }, 1500);
+  const canAdvance0 =
+    form.email.includes("@") &&
+    form.nome.trim().split(" ").length >= 2 &&
+    form.telefone.replace(/\D/g, "").length >= 10 &&
+    form.cpf.replace(/\D/g, "").length === 11;
+
+  const canAdvance1 =
+    form.cep.replace(/\D/g, "").length === 8 &&
+    (noNumber || form.numero.trim()) &&
+    form.rua.trim() && form.bairro.trim() && form.cidade.trim() && form.estado.trim();
+
+  const handlePay = () => {
+    setPayStatus("loading");
+    setTimeout(() => { setPayStatus("pending"); setPixTimer(900); }, 1600);
   };
 
-  const stepLabels = [
-    { label: "Identificação", icon: User },
-    { label: "Entrega", icon: Truck },
-    { label: "Pagamento", icon: CreditCard },
-    { label: "Finalizar", icon: CheckCircle2 },
-  ];
+  const goBack = () => {
+    if (payStatus === "pending" || payStatus === "loading") return;
+    if (step === 0) window.history.back();
+    else setStep((step - 1) as Step);
+  };
 
-  const canAdvance0 = form.nome.trim() && form.telefone.replace(/\D/g, "").length >= 10 && form.cpf.replace(/\D/g, "").length === 11;
-  const canAdvance1 = form.email.includes("@") && form.cep.replace(/\D/g, "").length === 8 && form.endereco.trim() && form.numero.trim();
+  // ---------- rendering ----------
 
   return (
-    <div className="min-h-screen bg-muted/30">
-      <div className="w-full py-2.5 text-center text-primary-foreground bg-primary">
-        <div className="flex items-center justify-center gap-2">
-          <span className="text-xs font-semibold tracking-wide uppercase">🔥 Último dia de promoção</span>
-        </div>
-      </div>
-
-      <div className="border-b border-border bg-white">
-        <div className="mx-auto flex max-w-lg items-center justify-between px-4 py-3">
-          <button onClick={() => window.history.back()} className="flex items-center gap-1 text-sm font-semibold text-muted-foreground">
-            <ChevronRight className="h-4 w-4 rotate-180" />
-            Voltar
-          </button>
-          <span className="text-xl font-bold lowercase text-primary">wepink</span>
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <Lock className="h-3.5 w-3.5" />
-            <span>Compra segura</span>
+    <div className="min-h-screen bg-[#f6f7fb] pb-10">
+      {/* Cart summary card */}
+      <div className="mx-auto max-w-md px-3 pt-3">
+        <div className="rounded-2xl bg-white p-4 shadow-sm">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-base font-semibold text-foreground">Seu carrinho</h2>
+            <div className="h-2.5 w-2.5 rounded-full bg-primary" />
           </div>
-        </div>
-      </div>
 
-      <div className="mx-auto max-w-xs px-4 pt-6 pb-2">
-        <div className="flex items-center justify-center">
-          {stepLabels.map((s, i) => (
-            <div key={i} className="flex flex-1 items-center">
-              <div className="flex flex-col items-center gap-1.5">
-                <div className={`flex h-10 w-10 items-center justify-center rounded-full transition-all ${i <= step ? "bg-primary text-primary-foreground shadow-lg" : "border-2 border-border bg-white text-muted-foreground"}`}>
-                  {i < step ? <CheckCircle2 className="h-5 w-5" /> : <s.icon className="h-5 w-5" />}
-                </div>
-                <span className={`text-[11px] font-semibold ${i <= step ? "text-foreground" : "text-muted-foreground"}`}>{s.label}</span>
+          {items.map((it, idx) => (
+            <div key={idx} className={`flex items-start gap-3 ${idx > 0 ? "mt-3 border-t border-border pt-3" : ""}`}>
+              <div className="h-14 w-14 flex-shrink-0 overflow-hidden rounded-lg bg-muted/40">
+                <img src={it.image} alt={it.name} className="h-full w-full object-contain" />
               </div>
-              {i < stepLabels.length - 1 && (
-                <div className={`mx-2 mb-5 h-0.5 flex-1 rounded-full ${i < step ? "bg-primary" : "bg-border"}`} />
-              )}
+              <div className="flex-1">
+                <p className="text-sm font-semibold leading-tight text-foreground">{it.name}</p>
+                <p className="mt-0.5 text-xs text-muted-foreground leading-tight">{it.name}</p>
+              </div>
+              <span className="text-sm text-muted-foreground">1x</span>
             </div>
           ))}
+
+          <div className="mt-4 space-y-1.5 border-t border-border pt-3">
+            <div className="flex justify-between text-sm text-muted-foreground">
+              <span>Subtotal</span><span>{brl(subtotal)}</span>
+            </div>
+            <div className="flex justify-between text-sm text-muted-foreground">
+              <span>Frete:</span>
+              <span>{showShipping ? (shippingCost === 0 ? brl(0) : brl(shippingCost)) : "–"}</span>
+            </div>
+            <div className="flex justify-between border-t border-border pt-2 text-base font-semibold text-foreground">
+              <span>Total</span><span>{brl(total)}</span>
+            </div>
+          </div>
         </div>
       </div>
 
-      <div className="mx-auto max-w-lg px-4 pb-10">
-        {/* Resumo */}
-        <div className="mb-6 overflow-hidden rounded-2xl border border-border bg-white shadow-sm">
-          <div className="border-b border-border px-5 py-3">
-            <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-              <Package className="h-4 w-4 text-primary" />
-              Resumo do pedido
+      {/* Form card */}
+      <div className="mx-auto max-w-md px-3 pt-3">
+        <div className="rounded-2xl bg-white p-5 shadow-sm">
+          {/* Stepper */}
+          <Stepper step={payStatus === "pending" || payStatus === "loading" || payStatus === "approved" ? 2 : step} />
+
+          {/* Back arrow (except on step 0 root and on pix screen) */}
+          {(step > 0 || payStatus !== "idle") && payStatus !== "pending" && payStatus !== "approved" && (
+            <button onClick={goBack} className="mt-4 mb-2 text-foreground" aria-label="Voltar">
+              <ArrowLeft className="h-5 w-5" />
+            </button>
+          )}
+
+          {/* STEP 0 — Personal */}
+          {step === 0 && (
+            <div className="mt-5 space-y-4">
+              <Field label="Email" placeholder="Email" type="email" value={form.email} onChange={(v) => handleChange("email", v)} />
+              <Field label="Nome completo" placeholder="Nome e sobrenome" value={form.nome} onChange={(v) => handleChange("nome", v)} />
+              <Field label="Telefone" placeholder="(00) 00000-0000" value={form.telefone} onChange={(v) => handleChange("telefone", v)} />
+              <Field label="CPF" placeholder="000.000.000-00" value={form.cpf} onChange={(v) => handleChange("cpf", v)} />
+              <button
+                disabled={!canAdvance0}
+                onClick={() => { setStep(1); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+                className="mt-2 w-full rounded-full bg-primary py-3.5 text-sm font-semibold text-primary-foreground disabled:opacity-50"
+              >
+                Continuar
+              </button>
             </div>
-          </div>
-          <div className="p-5">
-            {items.map((item, idx) => (
-              <div key={idx} className={`flex items-center gap-4 ${idx > 0 ? "mt-3 border-t border-border pt-3" : "mb-4"}`}>
-                <div className="h-20 w-20 flex-shrink-0 overflow-hidden rounded-xl bg-muted/40 p-1">
-                  <img src={item.image} alt={item.name} className="h-full w-full object-contain" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-sm font-bold text-foreground">{item.name}</h3>
-                  <p className="mt-0.5 text-xs text-muted-foreground">1x unidade</p>
-                </div>
-                <span className="text-sm font-semibold text-foreground">{item.priceLabel}</span>
+          )}
+
+          {/* STEP 1 — Address + Shipping */}
+          {step === 1 && (
+            <div className="mt-3 space-y-4">
+              <div>
+                <h3 className="text-lg font-semibold text-foreground">Preencha seu endereço...</h3>
+                <p className="mt-1 text-sm text-muted-foreground">Este é o endereço onde você receberá os produtos.</p>
               </div>
-            ))}
-            <div className="mt-4 space-y-2 rounded-xl bg-muted/40 p-4">
-              <div className="flex justify-between text-sm"><span className="text-muted-foreground">Subtotal</span><span>{subtotalLabel}</span></div>
-              <div className="flex justify-between text-sm"><span className="text-muted-foreground">Frete</span><span className={shippingCost === 0 ? "text-green-600 font-semibold" : ""}>{shippingLabel}</span></div>
-              <div className="border-t border-border pt-2">
-                <div className="flex justify-between text-base font-bold"><span>Total</span><span className="text-primary">{totalLabel}</span></div>
-                <p className="mt-0.5 text-right text-[11px] text-muted-foreground">ou 3x de {parcela} sem juros</p>
+
+              <div className="relative">
+                <Field label="CEP" placeholder="CEP" value={form.cep} onChange={(v) => handleChange("cep", v)} onBlur={() => fetchCep(form.cep)} />
+                {loadingCep && <Loader2 className="absolute right-3 top-9 h-4 w-4 animate-spin text-muted-foreground" />}
               </div>
-            </div>
-          </div>
-        </div>
 
-        {/* Form */}
-        <div className="overflow-hidden rounded-2xl border border-border bg-white shadow-sm">
-          <div className="border-b border-border px-5 py-3">
-            <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-              <User className="h-4 w-4 text-primary" />
-              {step === 0 ? "Dados pessoais" : step === 1 ? "Endereço de entrega" : step === 2 ? "Selecionar pagamento" : "Pagamento"}
-            </div>
-          </div>
+              <Field label="Número" placeholder="N° da residência" value={form.numero} onChange={(v) => handleChange("numero", v)} disabled={noNumber} />
+              <label className="flex items-center gap-2 -mt-1 select-none">
+                <input type="checkbox" checked={noNumber} onChange={(e) => setNoNumber(e.target.checked)} className="peer sr-only" />
+                <span className={`h-4 w-4 rounded-full border-2 ${noNumber ? "border-primary bg-primary" : "border-primary/60"} transition-all flex items-center justify-center`}>
+                  {noNumber && <div className="h-1.5 w-1.5 rounded-full bg-white" />}
+                </span>
+                <span className="text-sm text-primary">Meu endereço não possui número</span>
+              </label>
 
-          <div className="p-5 space-y-4">
-            {step === 0 && (
-              <>
-                <Field label="Nome completo" placeholder="Nome e sobrenome" value={form.nome} onChange={(v) => handleChange("nome", v)} />
-                <Field label="Telefone" placeholder="(85) 9 9999-9999" value={form.telefone} onChange={(v) => handleChange("telefone", v)} />
-                <Field label="CPF" placeholder="Número do documento" value={form.cpf} onChange={(v) => handleChange("cpf", v)} />
-                <button disabled={!canAdvance0} onClick={() => setStep(1)} className="w-full rounded-xl bg-primary py-3.5 text-base font-bold text-primary-foreground disabled:opacity-50">Continuar</button>
-              </>
-            )}
+              <Field label="Rua" placeholder="Rua" value={form.rua} onChange={(v) => handleChange("rua", v)} />
+              <Field label="Bairro" placeholder="Bairro" value={form.bairro} onChange={(v) => handleChange("bairro", v)} />
+              <Field label="Cidade" placeholder="Cidade" value={form.cidade} onChange={(v) => handleChange("cidade", v)} />
 
-            {step === 1 && (
-              <>
-                <Field icon={<Mail className="h-4 w-4 text-muted-foreground" />} label="E-mail" placeholder="seu@email.com" type="email" value={form.email} onChange={(v) => handleChange("email", v)} />
-                <div className="relative">
-                  <Field label="CEP" placeholder="00000-000" value={form.cep} onChange={(v) => handleChange("cep", v)} onBlur={() => fetchCep(form.cep)} />
-                  {loadingCep && <Loader2 className="absolute right-3 top-9 h-4 w-4 animate-spin text-muted-foreground" />}
-                </div>
-                <Field label="Número" placeholder="N da residência" value={form.numero} onChange={(v) => handleChange("numero", v)} />
-                <Field label="Rua" placeholder="Rua" value={form.endereco} onChange={(v) => handleChange("endereco", v)} />
-                <Field label="Cidade" placeholder="Cidade" value={form.cidade} onChange={(v) => handleChange("cidade", v)} />
-                <Field label="Estado" placeholder="Estado" value={form.estado} onChange={(v) => handleChange("estado", v)} />
-                {showShipping && (
-                  <div ref={shippingRef} className="space-y-3 pt-2">
-                    <p className="text-sm font-bold text-foreground">Escolha o melhor frete</p>
-                    {[
-                      { id: "correios", logo: correiosLogo, desc: "entrega de 10 a 12 dias", price: "R$ 0,00", priceClass: "text-green-600" },
-                      { id: "full", logo: fullLogo, desc: "entrega de 12h a 24h", price: "R$ 19,90", priceClass: "text-foreground" },
-                      { id: "jadlog", logo: jadlogLogo, desc: "entrega em até 5 dias úteis", price: "R$ 9,98", priceClass: "text-foreground" },
-                    ].map((opt) => (
-                      <button key={opt.id} type="button" onClick={() => setSelectedShipping(opt.id)} className={`flex w-full items-center gap-3 rounded-2xl border bg-white p-4 text-left ${selectedShipping === opt.id ? "border-primary" : "border-border"}`}>
-                        <div className={`h-5 w-5 flex-shrink-0 rounded-full ${selectedShipping === opt.id ? "border-[5px] border-primary" : "border-2 border-border"}`} />
-                        <img src={opt.logo} alt={opt.id} className="h-8 w-auto object-contain" />
-                        <div className="flex-1">
-                          <p className="text-xs text-muted-foreground">{opt.desc}</p>
-                        </div>
-                        <span className={`text-sm font-semibold ${opt.priceClass}`}>{opt.price}</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-                <button disabled={!canAdvance1} onClick={() => setStep(2)} className="w-full rounded-xl bg-primary py-3.5 text-base font-bold text-primary-foreground disabled:opacity-50">Continuar</button>
-              </>
-            )}
-
-            {step === 2 && (
-              <div className="space-y-5">
-                <div>
-                  <h3 className="text-lg font-bold text-foreground">Selecione a forma de pagamento</h3>
-                  <p className="text-sm text-muted-foreground mt-1">Escolha como deseja pagar</p>
-                </div>
-
-                <button className="flex w-full items-center gap-4 rounded-2xl border-2 border-primary bg-primary/5 p-4 text-left">
-                  <div className="h-6 w-6 rounded-full border-[5px] border-primary" />
-                  <div className="flex items-center gap-3 flex-1">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
-                      <QrCode className="h-5 w-5 text-primary" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-bold text-foreground">PIX</p>
-                      <p className="text-xs text-muted-foreground">Aprovação instantânea</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm font-bold text-primary">{totalLabel}</p>
-                    <p className="text-[10px] text-green-600 font-semibold">5% OFF</p>
-                  </div>
-                </button>
-
-                <div className="flex items-center gap-4 rounded-2xl border border-border p-4 opacity-50">
-                  <div className="h-6 w-6 rounded-full border-2 border-border" />
-                  <div className="flex items-center gap-3 flex-1">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-muted">
-                      <CreditCard className="h-5 w-5 text-muted-foreground" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-bold text-muted-foreground">Cartão de Crédito</p>
-                      <p className="text-xs text-muted-foreground">Em breve</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3 rounded-xl bg-primary/5 border border-primary/15 p-3">
-                  <Zap className="h-5 w-5 text-primary mt-0.5" />
-                  <div>
-                    <p className="text-xs font-bold text-foreground">Pagamento via PIX é mais rápido!</p>
-                    <p className="text-[11px] text-muted-foreground mt-0.5">Confirmado em segundos. Sem taxas.</p>
-                  </div>
-                </div>
-
-                <button onClick={handleCreatePix} className="w-full rounded-xl bg-primary py-3.5 text-base font-bold text-primary-foreground animate-pulse-glow">Gerar PIX e Pagar</button>
-              </div>
-            )}
-
-            {step === 3 && paymentStatus === "loading" && (
-              <div className="flex flex-col items-center gap-4 py-10">
-                <Loader2 className="h-10 w-10 animate-spin text-primary" />
-                <p className="text-sm font-semibold text-muted-foreground">Gerando pagamento PIX...</p>
-              </div>
-            )}
-
-            {step === 3 && paymentStatus === "pending" && (
-              <div className="space-y-4">
-                <div className="flex items-center justify-center gap-2 rounded-xl bg-destructive/10 border border-destructive/30 py-3">
-                  <Clock className="h-5 w-5 text-destructive animate-pulse" />
-                  <span className="text-sm font-bold text-destructive">
-                    Pague em {String(Math.floor(pixTimer / 60)).padStart(2, "0")}:{String(pixTimer % 60).padStart(2, "0")}
-                  </span>
-                </div>
-
-                <h3 className="text-center text-base font-bold text-foreground">Escaneie o QR Code ou copie o código</h3>
-
-                <div className="flex justify-center">
-                  <div className="rounded-2xl border-2 border-primary p-4 shadow-md bg-white">
-                    <QRCodeSVG value={pixKey} size={200} />
-                  </div>
-                </div>
-
-                <div className="rounded-xl bg-primary/5 p-4 text-center">
-                  <p className="text-xs text-muted-foreground mb-1">Valor a pagar</p>
-                  <p className="text-2xl font-extrabold text-primary">{totalLabel}</p>
-                </div>
-
-                <div className="rounded-xl bg-muted/40 border border-border p-3">
-                  <p className="text-[10px] text-muted-foreground mb-1 font-semibold">CÓDIGO PIX:</p>
-                  <p className="break-all text-[11px] text-foreground select-all">{pixKey}</p>
-                </div>
-
-                <button
-                  onClick={() => {
-                    navigator.clipboard?.writeText(pixKey);
-                    setCopied(true);
-                    toast.success("Código PIX copiado!");
-                    setTimeout(() => setCopied(false), 3000);
-                  }}
-                  className={`flex w-full items-center justify-center gap-2 rounded-xl py-4 text-base font-bold text-white shadow-lg ${copied ? "bg-green-500" : "bg-primary animate-pulse"}`}
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-foreground">Estado</label>
+                <select
+                  value={form.estado}
+                  onChange={(e) => handleChange("estado", e.target.value)}
+                  className="w-full appearance-none rounded-xl border border-border bg-white bg-[url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2212%22 height=%2212%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23888%22 stroke-width=%222%22><polyline points=%226 9 12 15 18 9%22/></svg>')] bg-[right_1rem_center] bg-no-repeat px-4 py-3 pr-10 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                 >
-                  {copied ? <><CheckCircle2 className="h-5 w-5" /> Copiado!</> : <><Copy className="h-5 w-5" /> Copiar Código PIX</>}
-                </button>
+                  <option value="">Selecione</option>
+                  {ESTADOS.map((uf) => <option key={uf} value={uf}>{uf}</option>)}
+                </select>
+              </div>
 
-                <div className="flex items-center gap-2 rounded-xl bg-yellow-50 border border-yellow-200 py-3 px-3">
-                  <Loader2 className="h-4 w-4 animate-spin text-yellow-600" />
-                  <span className="text-sm font-semibold text-yellow-700">Aguardando pagamento...</span>
+              <Field label="Complemento" placeholder="Complemento" value={form.complemento} onChange={(v) => handleChange("complemento", v)} />
+
+              <div ref={shippingRef} className="space-y-3 pt-2">
+                <p className="text-sm font-semibold text-foreground">Escolha o melhor frete para você</p>
+                {([
+                  { id: "full" as const, logo: fullLogo, desc: "entrega de 12h a 24h", price: 18.92 },
+                  { id: "correios" as const, logo: correiosLogo, desc: "entrega de 10 a 12 dias", price: 0 },
+                  { id: "jadlog" as const, logo: jadlogLogo, desc: "entrega de 5 dias úteis", price: 9.98 },
+                ]).map((opt) => {
+                  const active = selectedShipping === opt.id;
+                  return (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => setSelectedShipping(opt.id)}
+                      className={`flex w-full items-center gap-3 rounded-2xl border bg-white p-3 text-left ${active ? "border-primary shadow-[0_0_0_1px_hsl(var(--primary))]" : "border-border"}`}
+                    >
+                      <span className={`h-5 w-5 flex-shrink-0 rounded-full border-2 ${active ? "border-primary" : "border-border"} flex items-center justify-center`}>
+                        {active && <span className="h-2.5 w-2.5 rounded-full bg-primary" />}
+                      </span>
+                      <img src={opt.logo} alt={opt.id} className="h-6 w-auto object-contain" />
+                      <div className="flex-1">
+                        <p className="text-[11px] text-muted-foreground">{opt.desc}</p>
+                      </div>
+                      <span className="text-sm font-semibold text-foreground">{opt.price === 0 ? "R$ 0,00" : brl(opt.price)}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <button
+                disabled={!canAdvance1}
+                onClick={() => { setStep(2); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+                className="mt-2 w-full rounded-full bg-primary py-3.5 text-sm font-semibold text-primary-foreground disabled:opacity-50"
+              >
+                Continuar
+              </button>
+            </div>
+          )}
+
+          {/* STEP 2 — Payment */}
+          {step === 2 && payStatus === "idle" && (
+            <div className="mt-3 space-y-5">
+              <h3 className="text-lg font-semibold text-foreground">Escolha um método de pagamento...</h3>
+
+              <button className="flex w-full items-center gap-3 rounded-2xl border border-border bg-white p-4 text-left">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted/60">
+                  <PixDiamond />
                 </div>
-
-                <div className="flex items-center gap-3 rounded-xl bg-green-50 border border-green-200 p-3">
-                  <Shield className="h-8 w-8 text-green-500" />
-                  <div>
-                    <p className="text-xs font-bold text-green-700">Pagamento 100% seguro</p>
-                    <p className="text-[11px] text-green-600">Confirmação automática.</p>
-                  </div>
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-foreground">Pagamento via Pix</p>
+                  <p className="text-xs text-muted-foreground">Aprovação imediata.</p>
                 </div>
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary">
+                  <CheckCircle2 className="h-4 w-4 text-primary-foreground" />
+                </span>
+              </button>
 
-                <div className="flex items-center gap-2 rounded-xl bg-orange-50 border border-orange-200 p-3">
-                  <AlertTriangle className="h-5 w-5 text-orange-500" />
-                  <p className="text-xs text-orange-700 font-medium">Não feche esta página!</p>
+              <button onClick={handlePay} className="w-full rounded-full bg-primary py-3.5 text-sm font-semibold text-primary-foreground">
+                Pagar
+              </button>
+
+              <p className="text-center text-[11px] text-muted-foreground">
+                Ao finalizar o pagamento você concorda com nossos termos de uso e privacidade.
+              </p>
+            </div>
+          )}
+
+          {/* Pagando... */}
+          {step === 2 && payStatus === "loading" && (
+            <div className="mt-3 space-y-5">
+              <h3 className="text-lg font-semibold text-foreground">Escolha um método de pagamento...</h3>
+              <div className="flex w-full items-center gap-3 rounded-2xl border border-border bg-white p-4">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted/60">
+                  <PixDiamond />
                 </div>
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-foreground">Pagamento via Pix</p>
+                  <p className="text-xs text-muted-foreground">Aprovação imediata.</p>
+                </div>
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary">
+                  <CheckCircle2 className="h-4 w-4 text-primary-foreground" />
+                </span>
+              </div>
+              <button disabled className="flex w-full items-center justify-center gap-2 rounded-full bg-primary/60 py-3.5 text-sm font-semibold text-primary-foreground">
+                Pagando... <Loader2 className="h-4 w-4 animate-spin" />
+              </button>
+            </div>
+          )}
 
-                <div className="space-y-3 pt-1">
-                  <p className="text-sm font-bold text-foreground flex items-center gap-2">
-                    <Smartphone className="h-4 w-4 text-primary" />
-                    Como pagar:
+          {/* PIX code screen */}
+          {step === 2 && payStatus === "pending" && (
+            <div className="mt-3 space-y-4">
+              <h3 className="text-lg font-semibold text-foreground">Escaneie o QR-code ou copie o código.</h3>
+
+              <div className="flex justify-center">
+                <div className="rounded-xl border border-border bg-white p-3">
+                  <QRCodeSVG value={pixKey} size={180} />
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 rounded-xl bg-green-50 border border-green-200 px-3 py-2.5">
+                <CheckCircle2 className="h-5 w-5 text-green-600" />
+                <span className="text-sm font-semibold text-green-700">Código pix gerado com sucesso</span>
+              </div>
+
+              <div className="flex items-center justify-between pt-1">
+                <span className="text-sm text-muted-foreground">Valor PIX:</span>
+                <span className="text-base font-bold text-foreground">{brl(total)}</span>
+              </div>
+
+              <p className="truncate text-xs text-muted-foreground">{pixKey}</p>
+
+              <button
+                onClick={() => { navigator.clipboard?.writeText(pixKey); setCopied(true); toast.success("Código PIX copiado!"); setTimeout(() => setCopied(false), 2500); }}
+                className="flex w-full items-center justify-center gap-2 rounded-full bg-primary py-3.5 text-sm font-semibold text-primary-foreground"
+              >
+                {copied ? <><CheckCircle2 className="h-4 w-4" /> Copiado!</> : <><Copy className="h-4 w-4" /> Copiar PIX</>}
+              </button>
+
+              <button
+                onClick={() => toast.info("Aguardando confirmação do pagamento...")}
+                className="flex w-full items-center justify-center gap-2 rounded-full border border-border bg-white py-3.5 text-sm font-semibold text-foreground"
+              >
+                <CheckCircle2 className="h-4 w-4" /> Já efetuei o pagamento!
+              </button>
+
+              <p className="text-xs text-muted-foreground">
+                → Você será redirecionado automaticamente após a confirmação do pagamento. Se preferir, clique em <strong>"Já efetuei o pagamento!"</strong> para verificar se o pagamento foi aprovado.
+              </p>
+
+              <div className="flex items-start gap-3 rounded-xl border border-border bg-muted/30 p-3">
+                <ShieldCheck className="h-5 w-5 flex-shrink-0 text-muted-foreground" />
+                <div>
+                  <p className="text-sm font-semibold text-foreground">Seu banco pode exibir um alerta</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Alguns bancos mostram um aviso automático em qualquer Pix para um destinatário novo. Isso é normal e não significa que a compra é golpe. Confira os dados e conclua o pagamento com tranquilidade.
                   </p>
-                  {[
-                    { emoji: "📱", text: "Abra o app do seu banco" },
-                    { emoji: "📋", text: "Toque em PIX → Copia e Cola" },
-                    { emoji: "✅", text: "Confirme o pagamento" },
-                  ].map((it, i) => (
-                    <div key={i} className="flex items-start gap-3">
-                      <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-sm">{it.emoji}</div>
-                      <p className="text-sm text-muted-foreground pt-0.5">{it.text}</p>
-                    </div>
-                  ))}
                 </div>
               </div>
-            )}
 
-            {step === 3 && paymentStatus === "approved" && (
-              <div className="flex flex-col items-center gap-4 py-10">
-                <CheckCircle2 className="h-20 w-20 text-green-500" />
-                <h3 className="text-xl font-extrabold text-foreground">Pagamento Aprovado! 🎉</h3>
-                <p className="text-sm text-muted-foreground text-center">Seu pedido foi confirmado. Redirecionando...</p>
+              <div className="flex items-center gap-2 rounded-xl border border-orange-200 bg-orange-50 p-3">
+                <AlertTriangle className="h-4 w-4 flex-shrink-0 text-orange-500" />
+                <p className="text-xs text-orange-700">
+                  PIX expira em {String(Math.floor(pixTimer / 60)).padStart(2, "0")}:{String(pixTimer % 60).padStart(2, "0")}
+                </p>
               </div>
-            )}
-          </div>
+
+              <div className="space-y-2 pt-1">
+                <p className="text-sm font-semibold text-foreground">Como pagar:</p>
+                {[
+                  "Abra o aplicativo do seu banco e selecione a opção de pagamento PIX",
+                  "Escolha pagar usando o código QR ou copie o código PIX acima",
+                  "Confirme os detalhes do pagamento e o destinatário",
+                ].map((txt, i) => (
+                  <div key={i} className="flex items-start gap-2.5">
+                    <span className="mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-primary-foreground">{i + 1}</span>
+                    <p className="text-xs leading-snug text-foreground">{txt}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {step === 2 && payStatus === "approved" && (
+            <div className="flex flex-col items-center gap-3 py-10">
+              <CheckCircle2 className="h-16 w-16 text-green-500" />
+              <h3 className="text-xl font-bold text-foreground">Pagamento Aprovado!</h3>
+              <p className="text-sm text-muted-foreground text-center">Redirecionando...</p>
+            </div>
+          )}
         </div>
       </div>
     </div>
   );
 };
 
-const Field = ({ label, placeholder, value, onChange, type = "text", icon, onBlur }: { label: string; placeholder: string; value: string; onChange: (v: string) => void; type?: string; icon?: React.ReactNode; onBlur?: () => void }) => (
+// ---------- helpers ----------
+
+const Stepper = ({ step }: { step: number }) => {
+  const items = [User, Truck, CreditCard];
+  return (
+    <div className="flex items-center justify-between px-2">
+      {items.map((Icon, i) => {
+        const active = i <= step;
+        return (
+          <div key={i} className="flex flex-1 items-center last:flex-none">
+            <div className={`flex h-9 w-9 items-center justify-center rounded-full transition-all ${active ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
+              <Icon className="h-4 w-4" />
+            </div>
+            {i < items.length - 1 && (
+              <div className={`h-[2px] flex-1 mx-1 ${i < step ? "bg-primary" : "bg-primary/30"}`} />
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
+const Field = ({
+  label, placeholder, value, onChange, type = "text", onBlur, disabled,
+}: {
+  label: string; placeholder: string; value: string; onChange: (v: string) => void;
+  type?: string; onBlur?: () => void; disabled?: boolean;
+}) => (
   <div>
     <label className="mb-1 block text-xs font-semibold text-foreground">{label}</label>
-    <div className="relative">
-      {icon && <div className="absolute left-3 top-1/2 -translate-y-1/2">{icon}</div>}
-      <input
-        type={type}
-        placeholder={placeholder}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        onBlur={onBlur}
-        className={`w-full rounded-xl border border-border bg-white py-3 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 ${icon ? "pl-10 pr-3" : "px-4"}`}
-      />
-    </div>
+    <input
+      type={type}
+      placeholder={placeholder}
+      value={value}
+      disabled={disabled}
+      onChange={(e) => onChange(e.target.value)}
+      onBlur={onBlur}
+      className="w-full rounded-xl border border-border bg-white px-4 py-3 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:opacity-50"
+    />
   </div>
+);
+
+const PixDiamond = () => (
+  <svg viewBox="0 0 24 24" className="h-5 w-5 text-foreground" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 2 L22 12 L12 22 L2 12 Z" />
+    <path d="M7 12 L12 7 L17 12 L12 17 Z" />
+  </svg>
 );
 
 export default CheckoutPage;
