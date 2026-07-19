@@ -110,41 +110,12 @@ const CartDrawer = ({ open, onClose, onCheckout }: CartDrawerProps) => {
 
   
 
-  const CHECKOUT_LINKS: Record<string, string> = {
-    "kit": "https://pay.pagmentosseguro.shop/69bd69eea55884748913a11e",
-    "kit+liberte": "https://pay.pagmentosseguro.shop/69bd6d266ca66bffaa00d8db",
-    "kit+golden": "https://pay.pagmentosseguro.shop/69c20c042751f02352215f07",
-    "kit+vf27": "https://pay.pagmentosseguro.shop/69d513ac652d1bca7a1a2872",
-    "kit+newKit": "https://pay.pagmentosseguro.shop/6a2afcaec34af41e52fa1f6c",
-    "kit+golden+liberte": "https://pay.pagmentosseguro.shop/69c3f00e758c42c0d3b2ca1b",
-    "kit+liberte+vf27": "https://pay.pagmentosseguro.shop/69db0f9c094b1616eaf6f0c8",
-    "kit+golden+vf27": "https://pay.pagmentosseguro.shop/69db1162e1285315d41cda2b",
-    "kit+golden+liberte+vf27": "https://pay.pagmentosseguro.shop/69d51b0435ab37f9f43991f3",
-    "kit+liberte+newKit": "https://pay.pagmentosseguro.shop/6a2b02d0c34af41e52fa2521",
-    "kit+golden+newKit": "https://pay.pagmentosseguro.shop/6a2b041acbd053c9936e15a2",
-    "kit+vf27+newKit": "https://pay.pagmentosseguro.shop/6a2b0557c34af41e52fa278b",
-    "kit+liberte+newKit+vf27": "https://pay.pagmentosseguro.shop/6a2b17145c5da1b0ef340059",
-    "kit+golden+newKit+vf27": "https://pay.pagmentosseguro.shop/6a2b0b59d308a3e41ddba673",
-    "kit+golden+liberte+vf27+newKit": "https://pay.pagmentosseguro.shop/6a2afde7cbd053c9936e119e",
-  };
-
   const handleCheckout = () => {
     executeCheckout();
   };
 
-  const executeCheckout = (updatedSelected = selected) => {
-    const currentKeys = Object.keys(updatedSelected).filter(k => updatedSelected[k]).sort();
-    
-    const link = Object.entries(CHECKOUT_LINKS).find(([k]) => {
-      const parts = k.split("+").sort();
-      return parts.length === currentKeys.length && parts.every((p, i) => p === currentKeys[i]);
-    })?.[1];
-
-    if (link) {
-      window.location.href = link;
-    } else {
-      onCheckout(selectedItems.map(({ name, price, priceLabel, image }) => ({ name, price, priceLabel, image })));
-    }
+  const executeCheckout = (_updatedSelected = selected) => {
+    onCheckout(selectedItems.map(({ name, price, priceLabel, image }) => ({ name, price, priceLabel, image })));
   };
 
   return (
