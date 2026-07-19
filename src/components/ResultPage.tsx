@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import junhoPremiado from "@/assets/banner-junho.jpeg";
+import junhoPremiadoAsset from "@/assets/banner-julho.png.asset.json";
+const junhoPremiado = junhoPremiadoAsset.url;
 import kitsWepink from "@/assets/kits-wepink.webp";
 
 interface ResultPageProps {
