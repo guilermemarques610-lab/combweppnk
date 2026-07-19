@@ -124,9 +124,63 @@ const CheckoutPage = ({ items }: CheckoutPageProps) => {
     (noNumber || form.numero.trim()) &&
     form.rua.trim() && form.bairro.trim() && form.cidade.trim() && form.estado.trim();
 
-  const handlePay = () => {
+  const handlePay = async () => {
     setPayStatus("loading");
-    setTimeout(() => { setPayStatus("pending"); setPixTimer(900); }, 1600);
+    try {
+      const { data, error } = await supabase.functions.invoke("create-pix", {
+        body: {
+          amount: total,
+          customer: {
+            name: form.nome,
+            email: form.email,
+            document: form.cpf,
+            phone: form.telefone,
+          },
+          address: {
+            zipCode: form.cep,
+            street: form.rua,
+            number: noNumber ? "S/N" : form.numero,
+            complement: form.complemento,
+            neighborhood: form.bairro,
+            city: form.cidade,
+            state: form.estado,
+          },
+          items: items.map((it) => ({ title: it.name, unitPrice: it.price, quantity: 1 })),
+        },
+      });
+      if (error) throw error;
+      if (!data?.pixCode) throw new Error("PIX não gerado");
+      setPixCode(data.pixCode);
+      setTransactionId(data.transactionId || "");
+      setPayStatus("pending");
+      setPixTimer(900);
+    } catch (err) {
+      console.error("create-pix failed", err);
+      const msg = err instanceof Error ? err.message : "Erro ao gerar PIX";
+      toast.error(`Falha ao gerar PIX: ${msg}`);
+      setPayStatus("idle");
+    }
+  };
+
+  const handleCheckManual = async () => {
+    if (!transactionId || checkingManual) return;
+    setCheckingManual(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("check-pix", { body: { transactionId } });
+      if (error) throw error;
+      if (data?.paid) {
+        setPayStatus("approved");
+        toast.success("Pagamento aprovado!");
+        setTimeout(() => { window.location.href = "/upsell"; }, 2200);
+      } else {
+        toast.info("Ainda não identificamos seu pagamento. Aguarde alguns instantes.");
+      }
+    } catch (e) {
+      console.error(e);
+      toast.error("Erro ao verificar pagamento.");
+    } finally {
+      setCheckingManual(false);
+    }
   };
 
   const goBack = () => {
