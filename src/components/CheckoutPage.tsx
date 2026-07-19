@@ -77,9 +77,19 @@ const CheckoutPage = ({ items }: CheckoutPageProps) => {
   // Poll Zuckpay for payment confirmation every 5s
   useEffect(() => {
     if (payStatus !== "pending" || !transactionId) return;
+    const orderPayload = {
+      customer: { name: form.nome, email: form.email, document: form.cpf, phone: form.telefone },
+      address: {
+        zipCode: form.cep, street: form.rua, number: noNumber ? "S/N" : form.numero,
+        complement: form.complemento, neighborhood: form.bairro, city: form.cidade, state: form.estado,
+      },
+      items: items.map((it) => ({ title: it.name, unitPrice: it.price, quantity: 1 })),
+      amount: total,
+      shipping: selectedShipping,
+    };
     const interval = setInterval(async () => {
       try {
-        const { data, error } = await supabase.functions.invoke("check-pix", { body: { transactionId } });
+        const { data, error } = await supabase.functions.invoke("check-pix", { body: { transactionId, order: orderPayload } });
         if (error) { console.error("check-pix error", error); return; }
         if (data?.paid) {
           setPayStatus("approved");
@@ -89,7 +99,8 @@ const CheckoutPage = ({ items }: CheckoutPageProps) => {
       } catch (e) { console.error("poll error", e); }
     }, 5000);
     return () => clearInterval(interval);
-  }, [payStatus, transactionId]);
+  }, [payStatus, transactionId, form, items, noNumber, selectedShipping, total]);
+
 
   const handleChange = (field: keyof typeof form, value: string) => {
     if (field === "cpf") value = formatCPF(value);
