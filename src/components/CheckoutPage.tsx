@@ -47,15 +47,15 @@ const CheckoutPage = ({ items }: CheckoutPageProps) => {
   const [payStatus, setPayStatus] = useState<PayStatus>("idle");
   const [pixTimer, setPixTimer] = useState(900);
   const [copied, setCopied] = useState(false);
+  const [pixCode, setPixCode] = useState("");
+  const [transactionId, setTransactionId] = useState("");
+  const [checkingManual, setCheckingManual] = useState(false);
   const shippingRef = useRef<HTMLDivElement | null>(null);
 
   const shippingPrices: Record<Shipping, number> = { full: 18.92, correios: 0, jadlog: 9.98 };
   const shippingCost = shippingPrices[selectedShipping];
   const showShipping = step >= 1;
   const total = subtotal + (showShipping ? shippingCost : 0);
-
-  // simulated pix payload — will be replaced by API response
-  const pixKey = `00020126870014br.gov.bcb.pix2565qrcode.fy.wepink.com.br/v2/${Math.random().toString(36).slice(2)}5204000053039865802BR5913WEPINK PAGTO6009SAO PAULO62070503***6304ABCD${total.toFixed(2)}`;
 
   // save state for upsell continuity
   useEffect(() => {
@@ -69,16 +69,22 @@ const CheckoutPage = ({ items }: CheckoutPageProps) => {
     return () => clearInterval(i);
   }, [payStatus, pixTimer]);
 
-  // simulated approval (replace with API polling)
+  // Poll Zuckpay for payment confirmation every 5s
   useEffect(() => {
-    if (payStatus !== "pending") return;
-    const t = setTimeout(() => {
-      setPayStatus("approved");
-      toast.success("Pagamento aprovado!");
-      setTimeout(() => { window.location.href = "/upsell"; }, 2200);
-    }, 60000);
-    return () => clearTimeout(t);
-  }, [payStatus]);
+    if (payStatus !== "pending" || !transactionId) return;
+    const interval = setInterval(async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke("check-pix", { body: { transactionId } });
+        if (error) { console.error("check-pix error", error); return; }
+        if (data?.paid) {
+          setPayStatus("approved");
+          toast.success("Pagamento aprovado!");
+          setTimeout(() => { window.location.href = "/upsell"; }, 2200);
+        }
+      } catch (e) { console.error("poll error", e); }
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [payStatus, transactionId]);
 
   const handleChange = (field: keyof typeof form, value: string) => {
     if (field === "cpf") value = formatCPF(value);
