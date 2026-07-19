@@ -2,9 +2,12 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { User, Truck, CreditCard, ArrowLeft, Loader2, Copy, CheckCircle2, ShieldCheck, AlertTriangle } from "lucide-react";
 import type { CartItem } from "./OrderBump";
-import correiosLogo from "@/assets/correios-logo.png";
-import fullLogo from "@/assets/full-logo.png";
-import jadlogLogo from "@/assets/jadlog-logo.png";
+import correiosLogoAsset from "@/assets/correios.webp.asset.json";
+import fullLogoAsset from "@/assets/full.svg.asset.json";
+import jadlogLogoAsset from "@/assets/jadlog.webp.asset.json";
+const correiosLogo = correiosLogoAsset.url;
+const fullLogo = fullLogoAsset.url;
+const jadlogLogo = jadlogLogoAsset.url;
 import { QRCodeSVG } from "qrcode.react";
 import { supabase } from "@/integrations/supabase/client";
 
