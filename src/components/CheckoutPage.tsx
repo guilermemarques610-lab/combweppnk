@@ -312,16 +312,16 @@ const CheckoutPage = ({ items }: CheckoutPageProps) => {
                       key={opt.id}
                       type="button"
                       onClick={() => setSelectedShipping(opt.id)}
-                      className={`flex w-full items-center gap-3 rounded-2xl border bg-white p-3 text-left ${active ? "border-primary shadow-[0_0_0_1px_hsl(var(--primary))]" : "border-border"}`}
+                      className={`flex w-full items-center gap-4 rounded-2xl border bg-white px-4 py-4 text-left transition ${active ? "border-primary ring-1 ring-primary" : "border-border"}`}
                     >
-                      <span className={`h-5 w-5 flex-shrink-0 rounded-full border-2 ${active ? "border-primary" : "border-border"} flex items-center justify-center`}>
+                      <span className={`h-5 w-5 flex-shrink-0 rounded-full border-2 flex items-center justify-center ${active ? "border-primary" : "border-[#e11d48]/70"}`}>
                         {active && <span className="h-2.5 w-2.5 rounded-full bg-primary" />}
                       </span>
-                      <img src={opt.logo} alt={opt.id} className="h-6 w-auto object-contain" />
-                      <div className="flex-1">
-                        <p className="text-[11px] text-muted-foreground">{opt.desc}</p>
+                      <div className="flex-1 min-w-0">
+                        <img src={opt.logo} alt={opt.id} className="h-5 w-auto object-contain object-left mb-1" />
+                        <p className="text-xs text-muted-foreground">{opt.desc}</p>
                       </div>
-                      <span className="text-sm font-semibold text-foreground">{opt.price === 0 ? "R$ 0,00" : brl(opt.price)}</span>
+                      <span className="text-sm font-semibold text-foreground whitespace-nowrap">{opt.price === 0 ? "R$ 0,00" : brl(opt.price)}</span>
                     </button>
                   );
                 })}
