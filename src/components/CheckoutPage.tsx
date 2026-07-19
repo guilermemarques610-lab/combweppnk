@@ -348,8 +348,8 @@ const CheckoutPage = ({ items }: CheckoutPageProps) => {
               <h3 className="text-lg font-semibold text-foreground">Escolha um método de pagamento...</h3>
 
               <button className="flex w-full items-center gap-3 rounded-2xl border border-border bg-white p-4 text-left">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted/60">
-                  <PixDiamond />
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white border border-border overflow-hidden">
+                  <img src={pixLogo} alt="Pix" className="h-7 w-7 object-contain" />
                 </div>
                 <div className="flex-1">
                   <p className="text-sm font-semibold text-foreground">Pagamento via Pix</p>
