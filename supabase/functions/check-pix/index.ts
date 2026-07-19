@@ -4,9 +4,10 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
   try {
-    const secret = Deno.env.get('ZUCKPAY_SECRET_KEY');
-    if (!secret) {
-      return new Response(JSON.stringify({ error: 'ZUCKPAY_SECRET_KEY not configured' }),
+    const clientId = Deno.env.get('ZUCKPAY_CLIENT_ID');
+    const clientSecret = Deno.env.get('ZUCKPAY_SECRET_KEY');
+    if (!clientId || !clientSecret) {
+      return new Response(JSON.stringify({ error: 'ZuckPay credentials not configured' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
@@ -16,9 +17,11 @@ Deno.serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    const resp = await fetch(`https://api.zuckpay.com.br/v1/transactions/${encodeURIComponent(transactionId)}`, {
+    const url = `https://www.zuckpay.com.br/conta/v3/pix/status?transactionId=${encodeURIComponent(transactionId)}`;
+    const basic = btoa(`${clientId}:${clientSecret}`);
+    const resp = await fetch(url, {
       headers: {
-        'Authorization': `Bearer ${secret}`,
+        'Authorization': `Basic ${basic}`,
         'Accept': 'application/json',
       },
     });
@@ -31,9 +34,8 @@ Deno.serve(async (req) => {
     }
 
     const data = JSON.parse(text);
-    const status: string = data?.status || 'pending';
-    // Common paid statuses across Brazilian PSPs
-    const paid = ['paid', 'approved', 'completed', 'confirmed'].includes(status.toLowerCase());
+    const status: string = (data?.status || 'PENDING').toString();
+    const paid = status.toUpperCase() === 'PAID';
 
     return new Response(JSON.stringify({ status, paid, raw: data }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
