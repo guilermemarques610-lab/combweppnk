@@ -394,7 +394,7 @@ const CheckoutPage = ({ items }: CheckoutPageProps) => {
 
               <div className="flex justify-center">
                 <div className="rounded-xl border border-border bg-white p-3">
-                  <QRCodeSVG value={pixKey} size={180} />
+                  <QRCodeSVG value={pixCode} size={180} />
                 </div>
               </div>
 
@@ -408,20 +408,22 @@ const CheckoutPage = ({ items }: CheckoutPageProps) => {
                 <span className="text-base font-bold text-foreground">{brl(total)}</span>
               </div>
 
-              <p className="truncate text-xs text-muted-foreground">{pixKey}</p>
+              <p className="truncate text-xs text-muted-foreground">{pixCode}</p>
 
               <button
-                onClick={() => { navigator.clipboard?.writeText(pixKey); setCopied(true); toast.success("Código PIX copiado!"); setTimeout(() => setCopied(false), 2500); }}
+                onClick={() => { navigator.clipboard?.writeText(pixCode); setCopied(true); toast.success("Código PIX copiado!"); setTimeout(() => setCopied(false), 2500); }}
                 className="flex w-full items-center justify-center gap-2 rounded-full bg-primary py-3.5 text-sm font-semibold text-primary-foreground"
               >
                 {copied ? <><CheckCircle2 className="h-4 w-4" /> Copiado!</> : <><Copy className="h-4 w-4" /> Copiar PIX</>}
               </button>
 
               <button
-                onClick={() => toast.info("Aguardando confirmação do pagamento...")}
-                className="flex w-full items-center justify-center gap-2 rounded-full border border-border bg-white py-3.5 text-sm font-semibold text-foreground"
+                onClick={handleCheckManual}
+                disabled={checkingManual}
+                className="flex w-full items-center justify-center gap-2 rounded-full border border-border bg-white py-3.5 text-sm font-semibold text-foreground disabled:opacity-60"
               >
-                <CheckCircle2 className="h-4 w-4" /> Já efetuei o pagamento!
+                {checkingManual ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                Já efetuei o pagamento!
               </button>
 
               <p className="text-xs text-muted-foreground">
