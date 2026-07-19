@@ -5,9 +5,11 @@ import type { CartItem } from "./OrderBump";
 import correiosLogoAsset from "@/assets/correios-logo.png.asset.json";
 import fullLogoAsset from "@/assets/full-logo.png.asset.json";
 import jadlogLogoAsset from "@/assets/jadlog-logo.png.asset.json";
+import pixLogoAsset from "@/assets/pix-logo.png.asset.json";
 const correiosLogo = correiosLogoAsset.url;
 const fullLogo = fullLogoAsset.url;
 const jadlogLogo = jadlogLogoAsset.url;
+const pixLogo = pixLogoAsset.url;
 import { QRCodeSVG } from "qrcode.react";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -346,8 +348,8 @@ const CheckoutPage = ({ items }: CheckoutPageProps) => {
               <h3 className="text-lg font-semibold text-foreground">Escolha um método de pagamento...</h3>
 
               <button className="flex w-full items-center gap-3 rounded-2xl border border-border bg-white p-4 text-left">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted/60">
-                  <PixDiamond />
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white border border-border overflow-hidden">
+                  <img src={pixLogo} alt="Pix" className="h-7 w-7 object-contain" />
                 </div>
                 <div className="flex-1">
                   <p className="text-sm font-semibold text-foreground">Pagamento via Pix</p>
@@ -373,8 +375,8 @@ const CheckoutPage = ({ items }: CheckoutPageProps) => {
             <div className="mt-3 space-y-5">
               <h3 className="text-lg font-semibold text-foreground">Escolha um método de pagamento...</h3>
               <div className="flex w-full items-center gap-3 rounded-2xl border border-border bg-white p-4">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted/60">
-                  <PixDiamond />
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white border border-border overflow-hidden">
+                  <img src={pixLogo} alt="Pix" className="h-7 w-7 object-contain" />
                 </div>
                 <div className="flex-1">
                   <p className="text-sm font-semibold text-foreground">Pagamento via Pix</p>
@@ -522,11 +524,5 @@ const Field = ({
   </div>
 );
 
-const PixDiamond = () => (
-  <svg viewBox="0 0 24 24" className="h-5 w-5 text-foreground" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M12 2 L22 12 L12 22 L2 12 Z" />
-    <path d="M7 12 L12 7 L17 12 L12 17 Z" />
-  </svg>
-);
 
 export default CheckoutPage;
