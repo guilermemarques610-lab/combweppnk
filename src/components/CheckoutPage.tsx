@@ -5,9 +5,11 @@ import type { CartItem } from "./OrderBump";
 import correiosLogoAsset from "@/assets/correios-logo.png.asset.json";
 import fullLogoAsset from "@/assets/full-logo.png.asset.json";
 import jadlogLogoAsset from "@/assets/jadlog-logo.png.asset.json";
+import pixLogoAsset from "@/assets/pix-logo.png.asset.json";
 const correiosLogo = correiosLogoAsset.url;
 const fullLogo = fullLogoAsset.url;
 const jadlogLogo = jadlogLogoAsset.url;
+const pixLogo = pixLogoAsset.url;
 import { QRCodeSVG } from "qrcode.react";
 import { supabase } from "@/integrations/supabase/client";
 
