@@ -107,7 +107,12 @@ const Index = () => {
   }
 
   if (stage === "verification") {
-    return <VerificationPage onComplete={() => setStage("quiz")} />;
+    return (
+      <>
+        {showModal && <PromoModal onContinue={() => setShowModal(false)} />}
+        <VerificationPage onComplete={() => setStage("quiz")} />
+      </>
+    );
   }
 
   const q = quizQuestions[currentStep];
