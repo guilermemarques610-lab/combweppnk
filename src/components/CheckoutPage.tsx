@@ -6,6 +6,7 @@ import correiosLogo from "@/assets/correios-logo.png";
 import fullLogo from "@/assets/full-logo.png";
 import jadlogLogo from "@/assets/jadlog-logo.png";
 import { QRCodeSVG } from "qrcode.react";
+import { supabase } from "@/integrations/supabase/client";
 
 interface CheckoutPageProps {
   items: CartItem[];
