@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { X, ShoppingBag, Gift } from "lucide-react";
-import junhoPremiado from "@/assets/banner-junho.jpeg";
+import junhoPremiadoAsset from "@/assets/banner-julho.png.asset.json";
+const junhoPremiado = junhoPremiadoAsset.url;
 import product1 from "@/assets/product-1.webp";
 import bumpLiberteDore from "@/assets/bump-liberte-dore.webp";
 import bumpVfGolden from "@/assets/bump-vf-golden.webp";
